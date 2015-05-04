@@ -3,37 +3,26 @@
 #include<math.h>
 #include "nbodyutils.h"
 
-void fill_results(vector* results, vector* data, int N, int offset) {
-  // an array copy, used to put our current iteration into 
-  // the result array
-  int i;
-  for(i = 0; i < N; i++) {
-    results[offset + i] = data[offset + i];
-  }
+
+vector plus( vector v1, vector v2){
+  vector s;
+  s.x=v1.x+v2.x;
+  s.y=v1.y+v2.y;
+  return s;
 }
 
-// Computes k*v, where k is a scalar and v is a vector
-vector v_mult_scalar(double k, vector v) {
-  vector result;
-  result.x = k*v.x;
-  result.y = k*v.y;
-  return result;
+vector minus(vector v1, vector v2){
+  vector s;
+  s.x=v1.x-v2.x;
+  s.y=v1.y-v2.y;
+  return s;
 }
 
-// Computes a + b
-vector v_add(vector a, vector b) {
-  vector result;
-  result.x = a.x + b.x;
-  result.y = a.y + b.y;
-  return result;
-}
-
-// Computes a - b
-vector v_sub(vector a, vector b) {
-  vector result;
-  result.x = a.x - b.x;
-  result.y = a.y - b.y;
-  return result;
+vector mult(vector v1, double alpha){
+  vector s;
+  s.x=alpha*v1.x;
+  s.y=alpha*v1.y;
+  return s;
 }
 
 void evolve(sim_opts* s, nbody_dataset* d){
@@ -49,8 +38,11 @@ void evolve(sim_opts* s, nbody_dataset* d){
   int numsteps = s->numsteps;
 
   // initialize t0 in results arrays
+  printf("INIT DATA: \n");
   for(i = 0; i < N; i++) {
     d->X[i] = d->X0[i];
+    printf("\tX[%d]: <%lf, %lf>\t V[%d]: <%lf, %lf>\t M[%d]: %lf\n", 
+            i, d->X[i].x, d->X[i].y, i, d->V0[i].x, d->V0[i].y, i, d->M[i]);
   }
   
   // Results stored in X as follows: 
@@ -67,16 +59,21 @@ void evolve(sim_opts* s, nbody_dataset* d){
     // v[i](t+h) = v[i](t) + h*G*sum( m[j] * (x[j](t) - x[i](t)) / norm(x[j]-x[i])^3 )
     for(i = 0; i < d->N; i++) {
       // doing this in one line because I'm mean
-      d->X[offset + i] = v_add(d->X[offset + i - N], v_mult_scalar(h,d->V0[i]));
+      d->X[offset + i] = plus(d->X[offset + i - N], mult(d->V0[i], h));
       
       vector xi = d->X[offset + i-N];
+      printf("x[%d](%d): <%lf, %lf>\n", i, step, xi.x, xi.y);
       vector s = d->V0[i]; // V(t + h) result
       // Inner sum
       for(j = 0; j < N; j++) {
+        if(j == i)
+          continue;
         double distance = dist(d->X[offset + j - N], xi);
         double scalar = h*G*d->M[j]/(distance*distance*distance); // extra work
-        vector diff = v_sub(d->X[offset + j - N], xi);
-        s = v_add(s, v_mult_scalar(scalar, diff));
+//        printf("\th: %lf G: %lf m: %lf\n", h, G, d->M[j]);
+//        printf("\tDistance: %lf Scalar: %lf\n", distance*distance*distance, scalar);
+        vector diff = minus(d->X[offset + j - N], xi);
+        s = plus(s, mult(diff, scalar));
       }
       d->V0[i] = s;
     }
