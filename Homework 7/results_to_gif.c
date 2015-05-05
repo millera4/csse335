@@ -243,7 +243,7 @@ void print_usage(){
   fprintf(stderr,"--viewport=(mx,Mx,my,My)\tOnly render the picture for world coordinates mx < x <Mx and my < y < My.  Default is to keep all bodies on screen at all times.\n");
   fprintf(stderr,"--resolution=MxN\tMake the gif by M x N pixels.  Default is 256x256.");
   fprintf(stderr,"--numframes=%d\tDisplay this many frames from the simulation.  It is not possible to show every single time step, as this would take forever and would make the gif huge.  Instead, use this many equally spaced (in time) frames. Default is 200\n");
-  fprintf(stderr,"radius=<constant|proportional>\tIf radius is constant, each body will have the same radius.  If proportional, radius is proportional to mass. Default is proportional.\n");
+  //fprintf(stderr,"radius=<constant|proportional>\tIf radius is constant, each body will have the same radius.  If proportional, radius is proportional to mass. Default is proportional.\n");
    
 }
 
@@ -283,13 +283,13 @@ options parseoptions(int argc, char** argv){
       o.resolution[0]=dummyi1;
       o.resolution[1]=dummyi2;
     }
-    else if (sscanf(argv[i],"outputfile=%s",dummys)==1){
+    else if (sscanf(argv[i],"--outputfile=%s",dummys)==1){
       strcpy(o.outputfile,dummys);
     }
-    else if (sscanf(argv[i],"numframes=%d",dummyi1)==1){
+    else if (sscanf(argv[i],"--numframes=%d",&dummyi1)==1){
       o.numframes=dummyi1;
     }
-    else if (sscanf(argv[i],"viewport=(%lf,%lf,%lf,%lf)",&dummyd1,&dummyd2,&dummyd3,&dummyd4)==4){
+    else if (sscanf(argv[i],"--viewport=(%lf,%lf,%lf,%lf)",&dummyd1,&dummyd2,&dummyd3,&dummyd4)==4){
       o.viewport[0]=dummyd1; o.viewport[1]=dummyd2; o.viewport[2]=dummyd3; o.viewport[3]=dummyd4;
     }
     else{
@@ -320,7 +320,7 @@ int main ( int argc, char** argv ) {
     o.viewport[2]=miny;
     o.viewport[3]=maxy;
   }
-  create_gif("test.gif", o.resolution[0],o.resolution[1], o.viewport[0], o.viewport[1], o.viewport[2], o.viewport[3],vs, (maxy-miny)*.01,N,T,o.numframes);
+  create_gif(o.outputfile, o.resolution[0],o.resolution[1], o.viewport[0], o.viewport[1], o.viewport[2], o.viewport[3],vs, (maxy-miny)*.01,N,T,o.numframes);
 
 
 } 
