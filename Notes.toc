@@ -1,4 +1,4 @@
-\contentsline {section}{\numberline {1}Qualitative Measurements Speed}{1}
+\contentsline {section}{\numberline {1}Qualitative Measurements Speed}{2}
 \contentsline {section}{\numberline {2}Blocking}{3}
 \contentsline {section}{\numberline {3}Time Estimation}{3}
 \contentsline {subsection}{\numberline {3.1}Asymptotic Notation}{4}
@@ -17,3 +17,8 @@
 \contentsline {subsection}{\numberline {8.1}Complexity Analysis}{12}
 \contentsline {subsection}{\numberline {8.2}Sorting Again}{12}
 \contentsline {section}{\numberline {9}Sieve of Eratosthenes}{12}
+\contentsline {section}{\numberline {10}Solving Linear Systems}{13}
+\contentsline {subsection}{\numberline {10.1}Broadcast Method}{13}
+\contentsline {paragraph}{Complexity}{13}
+\contentsline {paragraph}{Pipelining}{13}
+\contentsline {subsection}{\numberline {10.2}Back-Substitution}{14}

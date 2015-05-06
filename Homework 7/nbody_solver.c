@@ -58,28 +58,26 @@ void evolve(sim_opts* s, nbody_dataset* d){
     // x[i](t + h) = x[i](t) + h*v[i](t)
     // v[i](t+h) = v[i](t) + h*G*sum( m[j] * (x[j](t) - x[i](t)) / norm(x[j]-x[i])^3 )
     for(i = 0; i < d->N; i++) {
-      // doing this in one line because I'm mean
-      d->X[offset + i] = plus(d->X[offset + i - N], mult(d->V0[i], h));
-      
       vector xi = d->X[offset + i-N];
+      d->X[offset + i] = plus(xi, mult(d->V0[i], h));
+      
       printf("x[%d](%d): <%lf, %lf>\n", i, step, xi.x, xi.y);
-      vector s = d->V0[i]; // V(t + h) result
+      vector s; // V(t + h) result
+      s.x = 0;
+      s.y = 0;
       // Inner sum
       for(j = 0; j < N; j++) {
         if(j == i)
           continue;
         double distance = dist(d->X[offset + j - N], xi);
-        double scalar = h*G*d->M[j]/(distance*distance*distance); // extra work
-//        printf("\th: %lf G: %lf m: %lf\n", h, G, d->M[j]);
-//        printf("\tDistance: %lf Scalar: %lf\n", distance*distance*distance, scalar);
+        double scalar = d->M[j]/(distance*distance*distance); // extra work
         vector diff = minus(d->X[offset + j - N], xi);
         s = plus(s, mult(diff, scalar));
       }
-      d->V0[i] = s;
+      d->V0[i] = plus(d->V0[i], mult(s, h*G));
     }
     
-
-    // Store this over the 
+    // Update time
     d->times[step] = d->times[step - 1] + s->stepsize;
   }
 }

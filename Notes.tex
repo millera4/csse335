@@ -455,9 +455,9 @@ F_i = gm_i \sum_{j\neq i} \frac{m_j}{\magn{x_i - x_j}^2}
 \end{equation}
 And so,
 \begin{align}
-m_iv_i' &= gm_i \sum_{j\neq i} \frac{m_j}{\magn{x_i - x_j}^2} \\
-v_i' &= g \sum_{j\neq i} \frac{m_j}{\magn{x_i - x_j}^2} \\
-x_i' = v_i
+m_i\vect{v}_i' &= Gm_i \sum_{j\neq i} \frac{m_j}{\magn{\vect{x}_i - \vect{x}_j}^2}\cdot\frac{\vect{x}_j - \vect{x}_i}{\magn{\vect{x}_i - \vect{x}_j}} \\
+\vect{v}_i' &= G \sum_{j\neq i} \frac{m_j}{\magn{\vect{x}_i - \vect{x}_j}^2}\cdot\frac{\vect{x}_j - \vect{x}_i}{\magn{\vect{x}_i - \vect{x}_j}} \\
+\vect{x}_i' &= \vect{v}_i
 \end{align}
 The last two equations are our system of differential equations. 
 
@@ -550,4 +550,39 @@ Do it in parallel.  Pipeline, send some numbers. Use a processor as a filter.
 A\vect{x} = \vect{b}
 \end{equation}
 This problem is the heart of all modern scientific computing. 
+
+Apparently we talked about this or something?  But I have no notes.  I do know we are doing Gaussian Elimination though, what a boss. 
+
+\subsection{Broadcast Method}
+Broadcast row $i$ to processors $i + 1$ to $n$.  Each processor subtracts the correct multiple of $R_i$ from its local row.  
+\paragraph{Complexity} 
+\begin{itemize}
+\item We have $n$ elimination stages.  \\
+\item At stage $i$, we broadcast $n - 1$ data to $n - i$ processors
+\item There are $n - i$ calculations done to eliminate the rest of the row.
+\end{itemize}
+The result is 
+\begin{align}
+\sum_{i=1}^{n-1} \Theta((n - i)\log(n - i)) + \Theta(n - i) \\
+	&= \Theta(\sum_{i=1}^{n-i} (n-i)\log(n-i) + (n-i)) \\
+	&= \Theta(\sum_{i=1}^{n-i} (n - i)(\log(n - i) + 1)) \\
+	&= \Theta(\sum_{i=1}^{n-i} n^2\log(n))
+\end{align}
+Ta-da
+
+\paragraph{Pipelining}
+Pipeline this yo.  Just like, have each processor slowly forward everything along.  It will be wonderful.  If it has useful anyformation, send it ahoy. 
+
+Each processor forwards any useful rows to next processor, and performs any possible eliminations.  The latency of a processor is $\Theta((n-1)n) = \Theta(n)$.  After a little bit of magic, we find that this is \textit{actually} $\Theta(n^2)$ factoring in the necessary work.
+
+Apparently this can also pivot.  That sounds like a mess.
+
+\subsection{Back-Substitution}
+Also pretty annoying.  Like, we pretty much just divide, subtract the old answers.  We probably need to broadcast more.  Find $x_n$, then broadcast it.  Use it to find $x_{n-1}$.  Repeat.  In general, the formula for $x_i$ is
+\begin{equation}
+x_i = \frac{b_i - \sum_{j=i+1}^n a_{ij}x_j}{a_{ii}}
+\end{equation}
+This is a $\Theta(n^2)$ algorithm in serial.  That means it is the \textit{same} as our parallel Gaussian Elimination.  So, it isn't \textit{that} big of a deal if we don't parallelize it.
+
+But if we want to, we'll run the same pipeline in reverse.
 \end{document}

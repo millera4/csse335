@@ -39,6 +39,7 @@
 			"version": "0.1.0",
 			"command": "gcc",
 			"args": ["-Wall", "Homework 7/nbody_solver.c", "-o", "Homework 7/nbody", "-lm"],
+			"showOutput": "silent",
 			"problemMatcher": {
 				"owner": "cpp",
 				"fileLocation": ["relative", "${workspaceRoot}"],
