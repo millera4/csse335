@@ -117,7 +117,6 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
       for(i = 0; i < extra; i++) {
         d->X[time_offset + i] = d->X0[i];
       }
-      printf("About to Bcast\n");
     }
     MPI_Bcast((d->X + time_offset), extra, MPI_VECTOR, 0, MPI_COMM_WORLD);
     
@@ -149,7 +148,6 @@ int main(int argc,char** argv) {
 
 
   read_sim_opts(argc,argv,&s);
-  //MPI_Bcast(&d.N, 1, MPI_INT, 0, MPI_COMM_WORLD);
   if(rank == 0) {
     print_options(s);
   
@@ -158,21 +156,7 @@ int main(int argc,char** argv) {
       MPI_Abort(MPI_COMM_WORLD,1);
     }
   }
-    
-    load_data(argv[1],&d);
-    /*
-  } else {
-    d.X0 = malloc(sizeof(vector)*d.N);
-    d.V0 = malloc(sizeof(vector)*d.N);
-    d.M = malloc(sizeof(double)*d.N);
-    d.G = 6.674e-11;
-  }
-  // Sending out init data from master to workers
-  MPI_Bcast(d.V0, d.N, MPI_VECTOR, 0, MPI_COMM_WORLD);
-  MPI_Bcast(d.M, d.N, MPI_VECTOR, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&s.numsteps, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&s.stepsize, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-  */
+  load_data(argv[1],&d);
 
   d.X=malloc(d.N*(s.numsteps+1)*sizeof(vector));
   d.times=malloc((s.numsteps+1)*sizeof(double));
