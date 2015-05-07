@@ -1,3 +1,6 @@
 ##### Visual Studio Code files
 ### tasks.json
 # .settings/*
+#
+### gifs from HW7
+*.gif
