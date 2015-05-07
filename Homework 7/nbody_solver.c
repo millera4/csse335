@@ -77,7 +77,7 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
         sum_forces.y = 0;
         // Inner sum
         for(j = 0; j < N; j++) {
-          if(j == i)
+          if(j == i + proc_offset)
             continue;
           double distance = dist(d->X[time_offset + j - N], xi);
           double scalar = d->M[j]/(distance*distance*distance); // extra work
@@ -90,6 +90,10 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
     
     // Everybody computes their own work
     int proc_offset = extra + rank*num_to_do;
+    for(i = 0; i < num_to_do; i++) {
+      printf("BEFORE ANYTHING %d: Processor %d responsible for planet %d: X = <%lf, %lf>, V = <%lf, %lf>\n", 
+          step, rank, proc_offset+i, d->X0[proc_offset+i].x, d->X0[proc_offset+i].y, d->V0[proc_offset+i].x, d->V0[proc_offset+i].y);
+    }
     
     // x[i](t + h) = x[i](t) + h*v[i](t)
     // v[i](t+h) = v[i](t) + h*G*sum( m[j] * (x[j](t) - x[i](t)) / norm(x[j]-x[i])^3 )
@@ -126,8 +130,19 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
       sendV[i] = d->V0[i];
     }
     
-    MPI_Allgather(d->X0 + proc_offset, num_to_do, MPI_VECTOR, d->X, num_to_do, MPI_VECTOR, MPI_COMM_WORLD);
+
+    for(i = 0; i < num_to_do; i++) {
+      printf("BEFORE %d: Processor %d responsible for planet %d: X = <%lf, %lf>, V = <%lf, %lf>\n", 
+          step, rank, proc_offset+i, d->X0[proc_offset+i].x, d->X0[proc_offset+i].y, d->V0[proc_offset+i].x, d->V0[proc_offset+i].y);
+    }
+    MPI_Allgather(d->X0 + proc_offset, num_to_do, MPI_VECTOR, d->X+time_offset, num_to_do, MPI_VECTOR, MPI_COMM_WORLD);
     MPI_Allgather(sendV + proc_offset, num_to_do, MPI_VECTOR, d->V0, num_to_do, MPI_VECTOR, MPI_COMM_WORLD);
+   
+
+    for(i = 0; i < num_to_do; i++) {
+      printf("AFTER %d: Processor %d responsible for planet %d: X = <%lf, %lf>, V = <%lf, %lf>\n", 
+          step, rank, proc_offset+i, d->X0[proc_offset+i].x, d->X0[proc_offset+i].y, d->V0[proc_offset+i].x, d->V0[proc_offset+i].y);
+    }
     
     // Update time
     d->times[step] = d->times[step - 1] + s->stepsize;
