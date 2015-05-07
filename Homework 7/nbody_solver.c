@@ -27,7 +27,7 @@ vector mult(vector v1, double alpha) {
   return s;
 }
 
-void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc, MPI_Datatype MPI_VECTOR) {
+void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
   // to send a vector -> {double, double} try and send MPI_LONG_LONG
   // it is the same length of data
 
@@ -48,6 +48,15 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc, MPI_Datatype 
   int num_to_do = N / num_proc;
   int extra = N % num_proc; // leftover data, X[0]..X[extra-1]
  
+  
+  // Defining an MPI_VECTOR type
+  MPI_Datatype MPI_VECTOR;
+  int typecount = 1;
+  int blocklens[1] = { 2 };
+  MPI_Aint offsets[1] = { 0 };
+  MPI_Datatype oldtypes[1] = { MPI_DOUBLE };  
+  MPI_Type_create_struct(typecount, blocklens, offsets, oldtypes, &MPI_VECTOR);
+  MPI_Type_commit(&MPI_VECTOR);
   
   // Results stored in X as follows: 
   //   X[0]..X[N-1] are X_i(0)
@@ -108,6 +117,7 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc, MPI_Datatype 
       for(i = 0; i < extra; i++) {
         d->X[time_offset + i] = d->X0[i];
       }
+      printf("About to Bcast\n");
     }
     MPI_Bcast((d->X + time_offset), extra, MPI_VECTOR, 0, MPI_COMM_WORLD);
     
@@ -133,25 +143,13 @@ int main(int argc,char** argv) {
   MPI_Init(&argc,&argv);
   MPI_Comm_size(MPI_COMM_WORLD,&numproc);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-  
-  // Defining an MPI_VECTOR type
-  MPI_Datatype MPI_VECTOR;
-  int count = 1;
-  int blocklens[1];
-  blocklens[0] = 2;
-  MPI_Aint offsets[1];
-  offsets[0] = 0;
-  MPI_Datatype oldtypes[1];
-  oldtypes[0] = MPI_DOUBLE; 
-  
-  MPI_Type_struct(count, blocklens, offsets, oldtypes, &MPI_VECTOR);
 
   nbody_dataset d;
   sim_opts s;
 
 
   read_sim_opts(argc,argv,&s);
-  MPI_Bcast(&d.N, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  //MPI_Bcast(&d.N, 1, MPI_INT, 0, MPI_COMM_WORLD);
   if(rank == 0) {
     print_options(s);
   
@@ -159,8 +157,10 @@ int main(int argc,char** argv) {
       print_usage();
       MPI_Abort(MPI_COMM_WORLD,1);
     }
+  }
     
     load_data(argv[1],&d);
+    /*
   } else {
     d.X0 = malloc(sizeof(vector)*d.N);
     d.V0 = malloc(sizeof(vector)*d.N);
@@ -168,12 +168,11 @@ int main(int argc,char** argv) {
     d.G = 6.674e-11;
   }
   // Sending out init data from master to workers
-  MPI_Bcast(d.X0, d.N, MPI_VECTOR, 0, MPI_COMM_WORLD);
   MPI_Bcast(d.V0, d.N, MPI_VECTOR, 0, MPI_COMM_WORLD);
   MPI_Bcast(d.M, d.N, MPI_VECTOR, 0, MPI_COMM_WORLD);
   MPI_Bcast(&s.numsteps, 1, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(&s.stepsize, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-  
+  */
 
   d.X=malloc(d.N*(s.numsteps+1)*sizeof(vector));
   d.times=malloc((s.numsteps+1)*sizeof(double));
@@ -184,7 +183,7 @@ int main(int argc,char** argv) {
     fprintf(stdout,"Starting simulation.\n");
   }
   
-  evolve(&s,&d, rank, numproc, MPI_VECTOR);
+  evolve(&s,&d, rank, numproc);
   
   if (rank == 0) {
     fprintf(stdout,"Finished simulation\n");
