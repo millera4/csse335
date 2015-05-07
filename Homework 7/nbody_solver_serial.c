@@ -70,11 +70,11 @@ void evolve(sim_opts* s, nbody_dataset* d){
         if(j == i)
           continue;
         double distance = dist(d->X[offset + j - N], xi);
-        double scalar = d->M[j]/(distance*distance*distance); // extra work
+        double scalar = G*d->M[j]/(distance*distance*distance); // extra work
         vector diff = minus(d->X[offset + j - N], xi);
         s = plus(s, mult(diff, scalar));
       }
-      d->V0[i] = plus(d->V0[i], mult(s, h*G));
+      d->V0[i] = plus(d->V0[i], mult(s,h));
     }
     
     // Update time
