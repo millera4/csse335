@@ -77,7 +77,7 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
         sum_forces.y = 0;
         // Inner sum
         for(j = 0; j < N; j++) {
-          if(j == i + proc_offset)
+          if(j == i)
             continue;
           double distance = dist(d->X[time_offset + j - N], xi);
           double scalar = d->M[j]/(distance*distance*distance); // extra work
@@ -106,7 +106,7 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
       s.y = 0;
       // Inner sum
       for(j = 0; j < N; j++) {
-        if(j == i)
+        if(j == i + proc_offset)
           continue;
         double distance = dist(d->X[time_offset + j - N], xi);
         double scalar = d->M[j]/(distance*distance*distance); // extra work
