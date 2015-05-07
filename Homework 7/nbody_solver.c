@@ -27,7 +27,7 @@ vector mult(vector v1, double alpha) {
   return s;
 }
 
-void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
+void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc, MPI_Datatype MPI_VECTOR) {
   // to send a vector -> {double, double} try and send MPI_LONG_LONG
   // it is the same length of data
 
@@ -39,18 +39,6 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
   int N = d->N;
   int numsteps = s->numsteps;
   
-  // Defining an MPI_VECTOR type
-  MPI_Datatype MPI_VECTOR;
-  int count = 1;
-  int blocklens[] = int[1];
-  blocklens[0] = 2;
-  int offsets[] = int[1];
-  offsets[0] = 0;
-  MPI_Datatype oldtypes[] = MPI_Datatype[1];
-  oldtypes[0] = MPI_DOUBLE; 
-  
-  MPI_Type_struct(count, blocklens, offsets, oldtypes, &MPI_VECTOR);
-  
 
   // initialize t0 in results arrays
   for(i = 0; i < N; i++) {
@@ -59,24 +47,7 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
   
   int num_to_do = N / num_proc;
   int extra = N % num_proc; // leftover data, X[0]..X[extra-1]
-  
-  // if (MASTER) {
-  //  compute extras
-  // }
-  // // EVERYBODY
-  // time_offset = N*step;
-  // proc_offset = extra + rank*num_to_do; 
-  // for(i = proc_offset; i < proc_offset + num_to_do; i++) {
-  //  compute X0[i]
-  //  compute V0[i]
-  // }
-  //
-  // MPI_Bcast(extras from master to all)
-  // MPI_Allgather(my_shit in X0, num_to_do, MPI_VECTOR???, store_all in X, num_to_do, MPI_VECTOR???, MPI_COMM_WORLD)
-  //
-  
-  // LOOP
-  
+ 
   
   // Results stored in X as follows: 
   //   X[0]..X[N-1] are X_i(0)
@@ -92,9 +63,9 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
         vector xi = d->X[time_offset + i-N];
         d->X0[i] = plus(xi, mult(d->V0[i], h));
         
-        vector s; // V(t + h) result
-        s.x = 0;
-        s.y = 0;
+        vector sum_forces; // V(t + h) result
+        sum_forces.x = 0;
+        sum_forces.y = 0;
         // Inner sum
         for(j = 0; j < N; j++) {
           if(j == i)
@@ -102,9 +73,9 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
           double distance = dist(d->X[time_offset + j - N], xi);
           double scalar = d->M[j]/(distance*distance*distance); // extra work
           vector diff = minus(d->X[time_offset + j - N], xi);
-          s = plus(s, mult(diff, scalar));
+          sum_forces = plus(sum_forces, mult(diff, scalar));
         }
-        d->V0[i] = plus(d->V0[i], mult(s, h*G));
+        d->V0[i] = plus(d->V0[i], mult(sum_forces, h*G));
       }
     }
     
@@ -146,8 +117,8 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
       sendV[i] = d->V0[i];
     }
     
-    MPI_Allgather(d->X0 + proc_offset, num_to_do, MPI_VECTOR, d->X, num_to_do, MPI_COMM_WORLD);
-    MPI_Allgather(sendV + proc_offset, num_to_do, MPI_VECTOR, d->V0, num_to_do, MPI_COMM_WORLD);
+    MPI_Allgather(d->X0 + proc_offset, num_to_do, MPI_VECTOR, d->X, num_to_do, MPI_VECTOR, MPI_COMM_WORLD);
+    MPI_Allgather(sendV + proc_offset, num_to_do, MPI_VECTOR, d->V0, num_to_do, MPI_VECTOR, MPI_COMM_WORLD);
     
     // Update time
     d->times[step] = d->times[step - 1] + s->stepsize;
@@ -162,20 +133,47 @@ int main(int argc,char** argv) {
   MPI_Init(&argc,&argv);
   MPI_Comm_size(MPI_COMM_WORLD,&numproc);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  
+  // Defining an MPI_VECTOR type
+  MPI_Datatype MPI_VECTOR;
+  int count = 1;
+  int blocklens[1];
+  blocklens[0] = 2;
+  MPI_Aint offsets[1];
+  offsets[0] = 0;
+  MPI_Datatype oldtypes[1];
+  oldtypes[0] = MPI_DOUBLE; 
+  
+  MPI_Type_struct(count, blocklens, offsets, oldtypes, &MPI_VECTOR);
 
   nbody_dataset d;
   sim_opts s;
 
 
   read_sim_opts(argc,argv,&s);
-  print_options(s);
-  if (argc<3) {
-
-    print_usage();
-    exit(1);
-  }
+  MPI_Bcast(&d.N, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  if(rank == 0) {
+    print_options(s);
   
-  load_data(argv[1],&d);
+    if (argc<3) {
+      print_usage();
+      MPI_Abort(MPI_COMM_WORLD,1);
+    }
+    
+    load_data(argv[1],&d);
+  } else {
+    d.X0 = malloc(sizeof(vector)*d.N);
+    d.V0 = malloc(sizeof(vector)*d.N);
+    d.M = malloc(sizeof(double)*d.N);
+    d.G = 6.674e-11;
+  }
+  // Sending out init data from master to workers
+  MPI_Bcast(d.X0, d.N, MPI_VECTOR, 0, MPI_COMM_WORLD);
+  MPI_Bcast(d.V0, d.N, MPI_VECTOR, 0, MPI_COMM_WORLD);
+  MPI_Bcast(d.M, d.N, MPI_VECTOR, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&s.numsteps, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&s.stepsize, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  
 
   d.X=malloc(d.N*(s.numsteps+1)*sizeof(vector));
   d.times=malloc((s.numsteps+1)*sizeof(double));
@@ -186,7 +184,7 @@ int main(int argc,char** argv) {
     fprintf(stdout,"Starting simulation.\n");
   }
   
-  evolve(&s,&d, rank, numproc);
+  evolve(&s,&d, rank, numproc, MPI_VECTOR);
   
   if (rank == 0) {
     fprintf(stdout,"Finished simulation\n");
