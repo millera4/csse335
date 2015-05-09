@@ -26,10 +26,6 @@ vector mult(vector v1, double alpha){
 }
 
 void evolve(sim_opts* s, nbody_dataset* d){
-  // to send a vector -> {double, double} try and send MPI_LONG_LONG
-  // it is the same length of data
-
-  //v[i](t + h) = v[i](t) + h*G*sum( m[j] * (x[j](t) - x[i](t)) / norm(x[j]-x[i])^3 )
   int i, j, step;
   d->times[0] = 0; 
   double h = s->stepsize;
@@ -38,11 +34,8 @@ void evolve(sim_opts* s, nbody_dataset* d){
   int numsteps = s->numsteps;
 
   // initialize t0 in results arrays
-  printf("INIT DATA: \n");
   for(i = 0; i < N; i++) {
     d->X[i] = d->X0[i];
-    printf("\tX[%d]: <%lf, %lf>\t V[%d]: <%lf, %lf>\t M[%d]: %lf\n", 
-            i, d->X[i].x, d->X[i].y, i, d->V0[i].x, d->V0[i].y, i, d->M[i]);
   }
   
   // Results stored in X as follows: 
@@ -58,10 +51,10 @@ void evolve(sim_opts* s, nbody_dataset* d){
     // x[i](t + h) = x[i](t) + h*v[i](t)
     // v[i](t+h) = v[i](t) + h*G*sum( m[j] * (x[j](t) - x[i](t)) / norm(x[j]-x[i])^3 )
     for(i = 0; i < d->N; i++) {
+     
       vector xi = d->X[offset + i-N];
       d->X[offset + i] = plus(xi, mult(d->V0[i], h));
-      
-      printf("x[%d](%d): <%lf, %lf>\n", i, step, xi.x, xi.y);
+
       vector s; // V(t + h) result
       s.x = 0;
       s.y = 0;
@@ -75,8 +68,9 @@ void evolve(sim_opts* s, nbody_dataset* d){
         s = plus(s, mult(diff, scalar));
       }
       d->V0[i] = plus(d->V0[i], mult(s,h));
+           printf("%d.%d: X<%lf, %lf> V<%lf,%lf>\n", step, i, d->X[offset+i].x,d->X[offset+i].y,d->V0[i].x,d->V0[i].y);
     }
-    
+
     // Update time
     d->times[step] = d->times[step - 1] + s->stepsize;
   }

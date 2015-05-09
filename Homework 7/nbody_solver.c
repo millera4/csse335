@@ -5,7 +5,6 @@
 
 #include "nbodyutils.h"
 
-
 vector plus( vector v1, vector v2) {
   vector s;
   s.x=v1.x+v2.x;
@@ -28,10 +27,6 @@ vector mult(vector v1, double alpha) {
 }
 
 void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
-  // to send a vector -> {double, double} try and send MPI_LONG_LONG
-  // it is the same length of data
-
-  //v[i](t + h) = v[i](t) + h*G*sum( m[j] * (x[j](t) - x[i](t)) / norm(x[j]-x[i])^3 )
   int i, j, step;
   d->times[0] = 0; 
   double h = s->stepsize;
@@ -45,9 +40,23 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
     d->X[i] = d->X0[i];
   }
   
+  // Setting up send/recv counts for displs
+  int* num_to_send = malloc(num_proc*sizeof(int));
+  int* displ = malloc(num_proc*sizeof(int));
+  
   int num_to_do = N / num_proc;
-  int extra = N % num_proc; // leftover data, X[0]..X[extra-1]
- 
+  if (N % num_proc != 0) {
+    num_to_do++;
+  }
+  int sum = 0;
+  for(i = 0; i < num_proc - 1; i++) {
+    num_to_send[i] = num_to_do;
+    displ[i] = sum;
+    sum += num_to_do;
+  }
+  // the last processor does the rest
+  num_to_send[num_proc - 1] = N - (num_proc - 1)*num_to_do;
+  displ[num_proc - 1] = sum;
   
   // Defining an MPI_VECTOR type
   MPI_Datatype MPI_VECTOR;
@@ -58,46 +67,13 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
   MPI_Type_create_struct(typecount, blocklens, offsets, oldtypes, &MPI_VECTOR);
   MPI_Type_commit(&MPI_VECTOR);
   
-  // Results stored in X as follows: 
-  //   X[0]..X[N-1] are X_i(0)
-  //   X[N]..X[2N-1] are X_i(0 + h)
-  //   ...
-  //   X[N*step]...X[N*step + (N - 1)] are X_i(t + h)
-  //
-  //   V0[i] always has the current velocity. 
   for(step = 1; step <= numsteps; step++) {
     int time_offset = N*step;
-    if (rank == 0) { // Master computes the extras
-      for(i = 0; i < extra; i++) {
-        vector xi = d->X[time_offset + i-N];
-        d->X0[i] = plus(xi, mult(d->V0[i], h));
-        
-        vector sum_forces; // V(t + h) result
-        sum_forces.x = 0;
-        sum_forces.y = 0;
-        // Inner sum
-        for(j = 0; j < N; j++) {
-          if(j == i)
-            continue;
-          double distance = dist(d->X[time_offset + j - N], xi);
-          double scalar = d->M[j]/(distance*distance*distance); // extra work
-          vector diff = minus(d->X[time_offset + j - N], xi);
-          sum_forces = plus(sum_forces, mult(diff, scalar));
-        }
-        d->V0[i] = plus(d->V0[i], mult(sum_forces, h*G));
-      }
-    }
-    
-    // Everybody computes their own work
-    int proc_offset = extra + rank*num_to_do;
-//    for(i = 0; i < num_to_do; i++) {
-//      printf("BEFORE ANYTHING %d: Processor %d responsible for planet %d: X = <%lf, %lf>, V = <%lf, %lf>\n", 
-//          step, rank, proc_offset+i, d->X0[proc_offset+i].x, d->X0[proc_offset+i].y, d->V0[proc_offset+i].x, d->V0[proc_offset+i].y);
-//    }
+    int proc_offset = displ[rank];
     
     // x[i](t + h) = x[i](t) + h*v[i](t)
     // v[i](t+h) = v[i](t) + h*G*sum( m[j] * (x[j](t) - x[i](t)) / norm(x[j]-x[i])^3 )
-    for(i = 0; i < num_to_do; i++) {
+    for(i = 0; i < num_to_send[rank]; i++) {
       vector xi = d->X[time_offset + proc_offset + i - N];
       d->X0[proc_offset + i] = plus(xi, mult(d->V0[proc_offset + i], h));
       
@@ -116,33 +92,13 @@ void evolve(sim_opts* s, nbody_dataset* d, int rank, int num_proc) {
       d->V0[proc_offset + i] = plus(d->V0[proc_offset + i], mult(s, h*G));
     }
     
-    // Have master broadcast extra data to all processes
-    if (rank == 0) {
-      for(i = 0; i < extra; i++) {
-        d->X[time_offset + i] = d->X0[i];
-      }
-    }
-    MPI_Bcast((d->X + time_offset), extra, MPI_VECTOR, 0, MPI_COMM_WORLD);
-    
     // Do an Allgather to send each node's info to the rest
     vector* sendV = malloc(N*sizeof(vector));
     for(i = 0; i < N; i++) {
       sendV[i] = d->V0[i];
     }
-    
-
-//    for(i = 0; i < num_to_do; i++) {
-//      printf("BEFORE %d: Processor %d responsible for planet %d: X = <%lf, %lf>, V = <%lf, %lf>\n", 
-//          step, rank, proc_offset+i, d->X0[proc_offset+i].x, d->X0[proc_offset+i].y, d->V0[proc_offset+i].x, d->V0[proc_offset+i].y);
-//    }
-    MPI_Allgather(d->X0 + proc_offset, num_to_do, MPI_VECTOR, d->X+time_offset, num_to_do, MPI_VECTOR, MPI_COMM_WORLD);
-    MPI_Allgather(sendV + proc_offset, num_to_do, MPI_VECTOR, d->V0, num_to_do, MPI_VECTOR, MPI_COMM_WORLD);
-   
-
-//    for(i = 0; i < num_to_do; i++) {
-//      printf("AFTER %d: Processor %d responsible for planet %d: X = <%lf, %lf>, V = <%lf, %lf>\n", 
-//          step, rank, proc_offset+i, d->X0[proc_offset+i].x, d->X0[proc_offset+i].y, d->V0[proc_offset+i].x, d->V0[proc_offset+i].y);
-//    }
+    MPI_Allgatherv(d->X0 + proc_offset, num_to_send[rank], MPI_VECTOR, d->X+time_offset, num_to_send, displ, MPI_VECTOR, MPI_COMM_WORLD);
+    MPI_Allgatherv(sendV + proc_offset, num_to_send[rank], MPI_VECTOR, d->V0, num_to_send, displ, MPI_VECTOR, MPI_COMM_WORLD);
     
     // Update time
     d->times[step] = d->times[step - 1] + s->stepsize;
