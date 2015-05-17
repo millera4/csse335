@@ -1,6 +1,6 @@
 \contentsline {section}{\numberline {1}Qualitative Measurements Speed}{2}
 \contentsline {section}{\numberline {2}Blocking}{3}
-\contentsline {section}{\numberline {3}Time Estimation}{3}
+\contentsline {section}{\numberline {3}Time Estimation}{4}
 \contentsline {subsection}{\numberline {3.1}Asymptotic Notation}{4}
 \contentsline {subsection}{\numberline {3.2}Time Analysis with Processors}{5}
 \contentsline {section}{\numberline {4}Work Allocation}{6}
@@ -21,4 +21,10 @@
 \contentsline {subsection}{\numberline {10.1}Broadcast Method}{13}
 \contentsline {paragraph}{Complexity}{13}
 \contentsline {paragraph}{Pipelining}{13}
-\contentsline {subsection}{\numberline {10.2}Back-Substitution}{14}
+\contentsline {subsection}{\numberline {10.2}Back-Substitution}{13}
+\contentsline {section}{\numberline {11}More Linear Algebra}{14}
+\contentsline {subsection}{\numberline {11.1}Matrix Multiplication}{14}
+\contentsline {paragraph}{Parallel Algorithm}{14}
+\contentsline {subsection}{\numberline {11.2}Block Matrices}{14}
+\contentsline {paragraph}{Parallel Algorithm}{15}
+\contentsline {subsection}{\numberline {11.3}Canaan's Algorithm}{16}

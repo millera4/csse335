@@ -563,8 +563,7 @@ Broadcast row $i$ to processors $i + 1$ to $n$.  Each processor subtracts the co
 \end{itemize}
 The result is 
 \begin{align}
-\sum_{i=1}^{n-1} \Theta((n - i)\log(n - i)) + \Theta(n - i) \\
-	&= \Theta(\sum_{i=1}^{n-i} (n-i)\log(n-i) + (n-i)) \\
+\sum_{i=1}^{n-1} \Theta((n - i)\log(n - i)) + \Theta(n - i) &= \Theta(\sum_{i=1}^{n-i} (n-i)\log(n-i) + (n-i)) \\
 	&= \Theta(\sum_{i=1}^{n-i} (n - i)(\log(n - i) + 1)) \\
 	&= \Theta(\sum_{i=1}^{n-i} n^2\log(n))
 \end{align}
@@ -585,4 +584,113 @@ x_i = \frac{b_i - \sum_{j=i+1}^n a_{ij}x_j}{a_{ii}}
 This is a $\Theta(n^2)$ algorithm in serial.  That means it is the \textit{same} as our parallel Gaussian Elimination.  So, it isn't \textit{that} big of a deal if we don't parallelize it.
 
 But if we want to, we'll run the same pipeline in reverse.
+
+\section{More Linear Algebra}
+\subsection{Matrix Multiplication}
+\begin{equation}
+(AB)_{ij} = A_{i:}\cdot B_{:j}
+\end{equation}
+Where $A_{i:}$ is the $i$th row of $A$ and $B_{:j}$ is the $j$th column of $B$.
+
+Then we did an example of multiplication.  I've taken DE2.
+
+In general, $(AB)_{ij} = \sum_{k=1}^n A_{ik}B_{kj}$.  We can easily write this in serial.  
+\begin{alltt}
+for i = 1 to n:
+ for j = 1 to n:
+  sum = 0
+  for k = 1 to n:
+   sum += A[i][k] + B[k][j]
+  Ans[i][j] = sum
+\end{alltt}
+This is an $O(n^3)$ algorithm.  
+
+\paragraph{Parallel Algorithm} Most basic: we have $n^2$ workers, one for each entry.  We can't just send all the information with regular sends and receives. That's a ton.  Instead, we can have the master broadcast information.  Each processor gets some extra information, but instead of $O(n^2)$ sends, we have $O(n^2\log (n^2)) = O(n^2 \log n)$.  Then, at the end, the master can do a gather for a final $O(\log(n^2)) = O(\log(n))$ step.
+
+Other: We could assign each processor a row, and have it compute that row of multiplications.
+
+\subsection{Block Matrices}
+Suppose that $A_{11} = \mymatr{1 & 3 \\ 4 & 1}$, $A_{12} = \mymatr{4 & 6 \\ 3 & 0}$, $A_{21} = \mymatr{3 & 0 \\ 1 & 9}$, and $A_{22} = \mymatr{7 & 7 \\ 7 & 7}$.  We can write a full matrix $A$ as
+\begin{equation}
+A = \begin{bmatrix}A_{11} & A_{12} \\ A_{21} & A_{22}\end{bmatrix} = \begin{bmatrix} 1 & 3 & 4 & 6 \\ 4 & 1 & 3 & 0 \\ 3 & 0 & 7 & 7 \\ 1 & 9 & 7 & 7\end{bmatrix}
+\end{equation}
+Note that block matrices do not need to be square, or even the same size.  Kind of magically (which I totally kind of proved in Linear Algebra?)  is that if $A$ and $B$ are block matrices, then $C = AB$, then
+\begin{equation}
+C = \begin{bmatrix} A_{11} & A_{12} & \dots & A_{n1} \\ A_{21} & \ddots & &\vdots \\ \vdots & & & \\ A_{n1} & \dots & & A_{nn}\end{bmatrix} \begin{bmatrix} B_{11} & B_{12} & \dots & B_{n1} \\ B_{21} & \ddots & &\vdots \\ \vdots & & & \\ B_{n1} & \dots & & B_{nn}\end{bmatrix} = \begin{bmatrix} C_{11} & C_{12} & \dots & C_{n1} \\ C_{21} & \ddots & &\vdots \\ \vdots & & & \\ C_{n1} & \dots & & C_{nn}\end{bmatrix}
+\end{equation}
+Where, if the $A$ matrices and $B$ matrices are compatible to multiply, then the \textit{matrix} $C_{ij} = \sum_{k=1}^n A_{ik}B_{kj}$.  This is perfectly analogous to regular matrix multiplication, but $A$ and $B$ are matrix multiplications instead of regular multiplications.
+
+If we want to find the product of $A$ and $B$, we can divide the matrices into 4 sub-block matrices.  Then, we can do 4 separate, smaller matrix multiplications to solve this problem.
+\begin{equation}
+C = \begin{bmatrix}A_{11} & A_{12} \\ A_{21} & A_{22}\end{bmatrix}\begin{bmatrix}B_{11} & B_{12} \\ B_{21} & B_{22} \end{bmatrix} = \begin{bmatrix} A_{11}B_{11}  + A_{12}B_{21} & A_{11}B_{12} + A_{12}B_{22} \\ A_{21}B_{11} + A_{22}B_{12} & A_{21}B_{12} + A_{22}B_{22} \end{bmatrix}
+\end{equation}
+Each of these smaller matrices is $\frac{n}{2} \times \frac{n}{2}$ if $A$ is $n \times n$.  We can use this for a recursive strategy for matrix multiplication.
+\begin{alltt}
+mult(A, B):
+ if A and B are n-by-1:
+  return AB
+ else
+  define the submatrices A11, B11, A12, etc.
+  M1111 = mult(A11, B11)
+  M1221 = mult(A12, B21)
+  ...
+  \# After all of those
+  C11 = M1111 + M1221
+  C12 = M1112 + M1222
+  ...
+  return [C11 C12; C21 C22]
+\end{alltt}
+
+\paragraph{Parallel Algorithm} We can use a workpool style algorithm.  We have children compute $M_{1111}$, $M_{1221}$, etc.  If we wanted (and we probably do), we can have child processes request more children, and continue the ``recursion'' all the way down to 1 by 1 matrices.   
+
+This creates a tree of processors that is $\log n$ deep.  The first level of communication, if we only send info that is required to a process, then the first level requires $\frac{n^2}{4}$ sends and receives.  The second level $\frac{n^2}{16}$, then $\frac{n^2}{64}$, and so on, until the final row is $\frac{n^2}{n^2} = 1$, which is the base case (a single multiply, sending single values).  Then at each level we have additions.  They require $\frac{n^2}{2^k}$ additions as well.  The total time needed is
+\begin{align}
+T &= \frac{n^2}{4} + \frac{n^2}{16} + \frac{n^2}{64} + \dots + \frac{n^2}{4^{\log_2 n}} \\
+	&= n^2 (\frac{1}{4} + \frac{1}{16} + \dots + \frac{1}{4^{\log_2 n}} \\
+	&= n^2 (\frac{1}{4} + \frac{1}{16} + \dots + \frac{1}{(2\cdot2)^{\log_2 n}} \\
+	&= n^2 (\frac{1}{4} + \frac{1}{16} + \dots + \frac{1}{n^2})
+\end{align}
+If we assume $n = 2^k$,
+\begin{align}
+T &= (2^k)^2 (\frac{1}{4} + \frac{1}{16} + \dots + \frac{1}{2^k2^k}) \\
+	&= 4^k (\frac{1}{4} + \frac{1}{16} + \dots + \frac{1}{4^k}) \\
+	&= 4^k (\frac{1}{4} + \frac{1}{4^2} + \dots + \frac{1}{4^k}) 
+\end{align}
+The sum inside the parenthesis is the form of a geometric series.  The formula for a partial geometric sum is
+\begin{equation}
+\sum x^i = \frac{x^{k+1} - 1}{x - 1}
+\end{equation}
+Thus, the time is
+\begin{align}
+T 	&= 4^k (\frac{1}{4} + \frac{1}{4^2} + \dots + \frac{1}{4^k})  \\
+	&= 4^k \sum_{i=1}^k \frac{1}{4^i} \\
+	&= 4^k (\frac{\frac{1}{4^{k+1}} - 1}{\frac{1}{4}-1} - 1) \\
+	&= \frac{\frac{1}{4} - 4^k}{\frac{1}{4}-1} - 4^k \\
+	&= \frac{4^k - \frac{1}{4}}{\frac{3}{4}} - 4^k \\
+	&= \frac{4^k - \frac{1}{4} - \frac{3}{4}4^k}{\frac{3}{4}} \\
+	&= \frac{\frac{1}{4}4^k - \frac{1}{4}}{\frac{3}{4}} \\
+	&= \frac{4^k - 1}{3} \\
+	&= \frac{n^2 - 1}{3} \\
+	&= \Theta(n^2)
+\end{align}
+This is the same as other algorithms, but in practice is still better. 
+
+\subsection{Canaan's Algorithm}
+Also involves block matrices. If we use a grouping of 3-by-3 block matrices (i.e. 9 processors), then have each processor $P_{ij}$ hold the subresult $A_{ij}B_{ij}$.  We do some pretty crazy rearrangements.  The idea is that if we compute the matrix multiplication with blocks, there is some slightly extra work to do.  We do some different communication to make it work better. 
+
+To pipeline this, each of the $p$ processors must compute an $\frac{N}{p} \times \frac{N}{p}$ matrix multiplication.  
+\begin{equation*}
+t_p = p(\Theta(\frac{n^2}{p^2}) + \Theta(\frac{n^3}{p^3}))
+\end{equation*}
+This is ``cost optimal'' because it divides our serial algorithm time by our processors.
+
+\section{Conway's Game of Life}
+The rules of Conway's Game of Life (note: Neighbors are all adjacent and diagonal cells)
+\begin{enumerate}
+\item If an occupied cell has 0 or 1 occupied neighbors then the cell becomes unoccupied (loneliness)
+\item If an occupied cell has 2 or 3 occupied neighbors, the cell stays occupied. 
+\item If an occupied cell has 4 or more occupied neighbors, the cell becomes unoccupied (overcrowding)
+\item If an unoccupied cell has exactly 3 occupied neighbors, the cell becomes occupied.  Otherwise it stays empty
+\end{enumerate}
+
 \end{document}

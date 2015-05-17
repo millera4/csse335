@@ -38,7 +38,7 @@
 			"taskName": "compile",
 			"version": "0.1.0",
 			"command": "gcc",
-			"args": ["-Wall", "Homework 7/nbody_solver_serial.c", "-o", "Homework 7/nbody", "-lm"],
+			"args": ["-Wall", "Homework 8/solve_system_serial.c", "-o", "Homework 8/solve_system"],
 			"showOutput": "silent",
 			"problemMatcher": {
 				"owner": "cpp",
