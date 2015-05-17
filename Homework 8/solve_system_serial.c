@@ -53,14 +53,14 @@ void guassian_eliminate(matrix* A, matrix* b) {
   double* bd = b->data;
   
   int i, j, k;
-  for(j = 0; j < n; j++) {
-    for(i = j + 1; i < n; i++) {
-      double mult = Ad[i*n + j]/Ad[j*n + j]; // A[i][j]/A[j][j];
+  for(i = 0; i < n; i++) {
+    for(j = i + 1; j < n; j++) {
+      double mult = Ad[j*n + i]/Ad[i*n + i]; // A[i][j]/A[j][j];
       for(k = 0; k < n; k++) {
-        Ad[i*n + k] = Ad[i*n+k] - mult*Ad[j*n+k]; // A[i][k] = A[i][k] - mult*A[j][k];
+        Ad[j*n + k] = Ad[j*n+k] - mult*Ad[i*n+k]; // A[i][k] = A[i][k] - mult*A[j][k];
       }
       // Update b[i] also
-      bd[i] = bd[i] - mult*bd[j]; // b[i] = b[i] - mult*b[j];
+      bd[j] = bd[j] - mult*bd[i]; // b[i] = b[i] - mult*b[j];
     }
   }
 }
