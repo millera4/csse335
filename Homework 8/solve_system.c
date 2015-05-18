@@ -50,20 +50,13 @@ int main(int argc,char** argv){
 }
 
 void assign_rows(int* rows, int numrows, int numproc) {
-  int num_to_do = numrows / numproc;
-  if (numrows % numproc != 0) {
-    num_to_do++;
-  }
-  int i;
-  int count = 0;
   int curr = 0;
+  int i;
   for(i = 0; i < numrows; i++) {
     rows[i] = curr;
-    count++;
-    if (count == num_to_do && curr != numproc - 1) {
-      count = 0;
-      curr++;
-    }
+    curr++;
+    if(curr == numproc) 
+      curr = 0;
   }
 }
 
