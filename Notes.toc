@@ -28,3 +28,4 @@
 \contentsline {subsection}{\numberline {11.2}Block Matrices}{14}
 \contentsline {paragraph}{Parallel Algorithm}{15}
 \contentsline {subsection}{\numberline {11.3}Canaan's Algorithm}{16}
+\contentsline {section}{\numberline {12}Conway's Game of Life}{17}
