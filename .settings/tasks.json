@@ -38,7 +38,7 @@
 			"taskName": "compile",
 			"version": "0.1.0",
 			"command": "gcc",
-			"args": ["-Wall", "Homework 8/solve_system_serial.c", "-o", "Homework 8/solve_system"],
+			"args": ["-Wall", "Homework 9/Circular/gol_serial.c", "-o", "Homework 9/Circular/gol"],
 			"showOutput": "silent",
 			"problemMatcher": {
 				"owner": "cpp",
